@@ -1,7 +1,8 @@
 *.pyc
 *.py~
-
-data/
 *.pkl
 
+.DS_Store
+
+data/
 output/*

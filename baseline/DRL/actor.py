@@ -1,28 +1,22 @@
-import numpy as np
-
-import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.utils.weight_norm as weightNorm
+import torch.nn as nn
+import torch
 
-from torch.autograd import Variable
-import sys
 
 def conv3x3(in_planes, out_planes, stride=1):
-    return (nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False))
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
+
 
 def cfg(depth):
-    depth_lst = [18, 34, 50, 101, 152]
-    assert (depth in depth_lst), "Error : Resnet depth should be either 18, 34, 50, 101, 152"
-    cf_dict = {
-        '18': (BasicBlock, [2,2,2,2]),
-        '34': (BasicBlock, [3,4,6,3]),
-        '50': (Bottleneck, [3,4,6,3]),
-        '101':(Bottleneck, [3,4,23,3]),
-        '152':(Bottleneck, [3,8,36,3]),
-    }
+    depth_list = [18, 34, 50, 101, 152]
+    assert (depth in depth_list), "Resnet depth must be 18, 34, 50, 101 or 152!"
+    cfg_dict = {'18': (BasicBlock, [2, 2, 2, 2]),
+                '34': (BasicBlock, [3, 4, 6, 3]),
+                '50': (Bottleneck, [3, 4, 6, 3]),
+                '101': (Bottleneck, [3, 4, 23, 3]),
+                '152': (Bottleneck, [3, 8, 36, 3])}
+    return cfg_dict[str(depth)]
 
-    return cf_dict[str(depth)]
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -37,35 +31,33 @@ class BasicBlock(nn.Module):
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != self.expansion * planes:
             self.shortcut = nn.Sequential(
-                (nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False)),
-                nn.BatchNorm2d(self.expansion*planes)
-            )
+                nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(self.expansion * planes))
 
     def forward(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
         out += self.shortcut(x)
         out = F.relu(out)
-
         return out
+
 
 class Bottleneck(nn.Module):
     expansion = 4
 
     def __init__(self, in_planes, planes, stride=1):
         super(Bottleneck, self).__init__()
-        self.conv1 = (nn.Conv2d(in_planes, planes, kernel_size=1, bias=False))
-        self.conv2 = (nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False))
-        self.conv3 = (nn.Conv2d(planes, self.expansion*planes, kernel_size=1, bias=False))
+        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv3 = nn.Conv2d(planes, self.expansion * planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.bn3 = nn.BatchNorm2d(self.expansion*planes)
+        self.bn3 = nn.BatchNorm2d(self.expansion * planes)
 
         self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion*planes:
+        if stride != 1 or in_planes != self.expansion * planes:
             self.shortcut = nn.Sequential(
-                (nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False)),
-            )
+                nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False))
 
     def forward(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
@@ -73,14 +65,13 @@ class Bottleneck(nn.Module):
         out = self.bn3(self.conv3(out))
         out += self.shortcut(x)
         out = F.relu(out)
-
         return out
 
-class ResNet(nn.Module):
-    def __init__(self, num_inputs, depth, num_outputs):
-        super(ResNet, self).__init__()
-        self.in_planes = 64
 
+class Actor(nn.Module):
+    def __init__(self, num_inputs, depth, num_outputs):
+        super(Actor, self).__init__()
+        self.in_planes = 64
         block, num_blocks = cfg(depth)
 
         self.conv1 = conv3x3(num_inputs, 64, 2)
@@ -92,13 +83,11 @@ class ResNet(nn.Module):
         self.fc = nn.Linear(512, num_outputs)
 
     def _make_layer(self, block, planes, num_blocks, stride):
-        strides = [stride] + [1]*(num_blocks-1)
+        strides = [stride] + [1] * (num_blocks - 1)
         layers = []
-
         for stride in strides:
             layers.append(block(self.in_planes, planes, stride))
             self.in_planes = planes * block.expansion
-
         return nn.Sequential(*layers)
 
     def forward(self, x):

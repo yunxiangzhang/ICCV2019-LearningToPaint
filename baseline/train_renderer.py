@@ -1,3 +1,4 @@
+import torch.optim as optim
 import cv2
 import torch
 import numpy as np
@@ -9,7 +10,6 @@ from Renderer.model import FCN
 from Renderer.stroke_gen import *
 
 writer = TensorBoard("../train_log/")
-import torch.optim as optim
 
 criterion = nn.MSELoss()
 net = FCN()
