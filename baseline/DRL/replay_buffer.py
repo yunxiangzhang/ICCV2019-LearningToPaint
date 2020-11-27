@@ -9,10 +9,10 @@ class ReplayBuffer:
         self.act_buf = torch.zeros((args.replay_size, args.action_space_dim), dtype=torch.float32)
         self.done_buf = torch.zeros(args.replay_size, dtype=torch.float32)
         if args.cuda:
-            self.obs_buf.cuda()
-            self.next_obs_buf.cuda()
-            self.act_buf.cuda()
-            self.done_buf.cuda()
+            self.obs_buf = self.obs_buf.cuda()
+            self.next_obs_buf = self.next_obs_buf.cuda()
+            self.act_buf = self.act_buf.cuda()
+            self.done_buf = self.done_buf.cuda()
         self.ptr, self.size, self.max_size = 0, 0, args.replay_size
         self.batch_size = args.batch_size
 

@@ -1,13 +1,13 @@
-from feature_extractor import FeatureExtractor
-from replay_buffer import ReplayBuffer
-from renderer import Renderer
-from critic import Critic
-from actor import Actor
+from DRL.feature_extractor import FeatureExtractor
+from DRL.replay_buffer import ReplayBuffer
+from DRL.renderer import Renderer
+from DRL.critic import Critic
+from DRL.actor import Actor
 
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.nn as nn
-import utils
+import DRL.utils as utils
 import torch
 import os
 
@@ -38,9 +38,6 @@ class DDPG:
             p.requires_grad = False
         utils.hard_update(self.actor_target, self.actor)
         utils.hard_update(self.critic_target, self.critic)
-        # Optimizers
-        self.actor_optim = optim.Adam(self.actor.parameters(), lr=1e-2)
-        self.critic_optim = optim.Adam(self.critic.parameters(), lr=1e-2)
         # Renderer
         self.decoder = Renderer()
         self.decoder.load_state_dict(torch.load(os.path.join(args.model_path, 'renderer.pkl')))
@@ -64,6 +61,9 @@ class DDPG:
         # Most recent state and action
         self.state = None
         self.action = None
+        # Optimizers
+        self.actor_optim = optim.Adam(self.actor.parameters(), lr=1e-2)
+        self.critic_optim = optim.Adam(self.critic.parameters(), lr=1e-2)
 
     def observe(self, obs, done):
         for i in range(self.batch_size):
@@ -205,4 +205,4 @@ class DDPG:
         self.critic.cuda()
         self.critic_target.cuda()
         self.decoder.cuda()
-        self.coord.cuda()
+        self.coord = self.coord.cuda()

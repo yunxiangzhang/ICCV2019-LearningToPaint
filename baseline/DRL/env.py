@@ -1,8 +1,8 @@
 from torch.utils.data import DataLoader, Subset
 from torchvision import transforms, datasets
-from renderer import Renderer
+from DRL.renderer import Renderer
+import DRL.utils as utils
 import torch
-import utils
 import os
 
 
@@ -19,6 +19,7 @@ class Paint:
         # Renderer
         self.decoder = Renderer()
         self.decoder.load_state_dict(torch.load(os.path.join(args.model_path, 'renderer.pkl')))
+        self.decoder.eval()
         if args.cuda:
             self.decoder.cuda()
         for p in self.decoder.parameters():
@@ -32,30 +33,37 @@ class Paint:
         content_trainset_size = int((1 - 1. / (1. + args.train_test_ratio)) * len(content_dataset))
         content_trainset = Subset(content_dataset, list(range(content_trainset_size)))
         content_testset = Subset(content_dataset, list(range(content_trainset_size, len(content_dataset))))
-        self.content_trainloader = DataLoader(content_trainset, batch_size=self.batch_size, shuffle=True, num_workers=args.num_workers)
-        self.content_testloader = DataLoader(content_testset, batch_size=self.batch_size, shuffle=False, num_workers=args.num_workers)
+        self.content_trainloader = DataLoader(content_trainset, batch_size=self.batch_size,
+                                              shuffle=True, num_workers=args.num_workers, drop_last=True)
+        self.content_testloader = DataLoader(content_testset, batch_size=self.batch_size, shuffle=False, num_workers=args.num_workers, drop_last=True)
+        self.content_train_iterator = iter(self.content_trainloader)
         style_dataset = datasets.ImageFolder(root=args.style_dataset_path,
                                              transform=transforms.Compose([
                                                  transforms.Resize(args.canvas_size),
                                                  transforms.CenterCrop(args.canvas_size),
                                                  transforms.ToTensor()]))
-        self.style_dataloader = DataLoader(style_dataset, batch_size=self.batch_size, shuffle=True, num_workers=args.num_workers)
+        self.style_dataloader = DataLoader(style_dataset, batch_size=self.batch_size, shuffle=True, num_workers=args.num_workers, drop_last=True)
 
     def reset(self):
-        self.content = next(iter(self.content_trainloader))
-        self.style = next(iter(self.style_dataloader))
+        self.content = next(self.content_train_iterator, 'terminal')
+        if self.content == 'terminal':
+            self.content_train_iterator = iter(self.content_trainloader)
+            self.content = next(self.content_train_iterator, 'terminal')[0]
+        else:
+            self.content = self.content[0]
+        self.style = next(iter(self.style_dataloader))[0]
         self.canvas = torch.zeros([self.batch_size, 3, self.canvas_size, self.canvas_size], dtype=torch.float32)
         if self.cuda:
-            self.content.cuda()
-            self.style.cuda()
-            self.canvas.cuda()
+            self.content = self.content.cuda()
+            self.style = self.style.cuda()
+            self.canvas = self.canvas.cuda()
         self.step = 0
         return self.observe()
 
     def observe(self):
         T = torch.ones([self.batch_size, 1, self.canvas_size, self.canvas_size], dtype=torch.float32) * self.step / self.episode_len
         if self.cuda:
-            T.cuda()
+            T = T.cuda()
         return torch.cat((self.canvas, self.content, self.style, T), dim=1)
 
     def step(self, action):
@@ -64,5 +72,5 @@ class Paint:
         obs = self.observe()
         done = torch.as_tensor([self.step == self.episode_len] * self.batch_size, dtype=torch.float32)
         if self.cuda:
-            done.cuda()
+            done = done.cuda()
         return obs.detach(), done
