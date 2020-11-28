@@ -56,7 +56,7 @@ class DDPG:
         self.coord = coord
         # Select the correct device
         if self.cuda:
-            self.cuda()
+            self.to_cuda()
         # Replay buffer
         self.memory = ReplayBuffer(args)
         # Most recent state and action
@@ -117,9 +117,9 @@ class DDPG:
             handle.remove()
 
         content_loss = F.mse_loss(content_features[0], content_features[2].detach())
-        style_loss = F.mse_loss(utils.gramm_matrix(style_features[0]), utils.gramm_matrix(style_features[5]).detach())
+        style_loss = F.mse_loss(utils.gram_matrix(style_features[0]), utils.gram_matrix(style_features[5]).detach())
         for i in range(1, 5):
-            style_loss += F.mse_loss(utils.gramm_matrix(style_features[i]), utils.gramm_matrix(style_features[i + 5]).detach())
+            style_loss += F.mse_loss(utils.gram_matrix(style_features[i]), utils.gram_matrix(style_features[i + 5]).detach())
         total_loss = self.content_weight * content_loss + self.style_weight * style_loss
         return total_loss
 
@@ -200,7 +200,7 @@ class DDPG:
         self.actor.train()
         self.critic.train()
 
-    def cuda(self):
+    def to_cuda(self):
         self.actor.cuda()
         self.actor_target.cuda()
         self.critic.cuda()

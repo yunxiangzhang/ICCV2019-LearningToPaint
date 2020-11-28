@@ -2,7 +2,7 @@ import torch
 
 
 def gram_matrix(features):
-    b, c, h, w = input.shape
+    b, c, h, w = features.shape
     features = features.view(b, c, h * w)
     Gramm = torch.matmul(features, features.transpose(1, 2))
     return Gramm.div(c * h * w)

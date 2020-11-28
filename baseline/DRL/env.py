@@ -67,11 +67,11 @@ class Paint:
             self.content = self.content.cuda()
             self.style = self.style.cuda()
             self.canvas = self.canvas.cuda()
-        self.step = 0
+        self.step_num = 0
         return self.observe()
 
     def observe(self):
-        T = torch.ones([self.batch_size, 1, self.canvas_size, self.canvas_size], dtype=torch.float32) * self.step / self.episode_len
+        T = torch.ones([self.batch_size, 1, self.canvas_size, self.canvas_size], dtype=torch.float32) * self.step_num / self.episode_len
         if self.cuda:
             T = T.cuda()
         return torch.cat((self.canvas, self.content, self.style, T), dim=1)
@@ -79,9 +79,9 @@ class Paint:
     def step(self, action):
         with torch.no_grad():
             self.canvas = utils.decode(action, self.canvas, self.decoder, self.num_strokes, self.num_stroke_params)
-        self.step += 1
+        self.step_num += 1
         obs = self.observe()
-        done = torch.as_tensor([self.step == self.episode_len] * self.batch_size, dtype=torch.float32)
+        done = torch.as_tensor([self.step_num == self.episode_len] * self.batch_size, dtype=torch.float32)
         if self.cuda:
             done = done.cuda()
         return obs.detach(), done

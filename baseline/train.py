@@ -59,6 +59,7 @@ def train(agent, env, args):
         obs, done = env.step(action)
         agent.observe(obs, done)
         # End of episode
+        print('Episode:', episode + 1)
         if episode_step == args.episode_len:
             if step > args.start_after:
                 # Adjust learning rate
@@ -71,6 +72,7 @@ def train(agent, env, args):
                 # Train the agent
                 for i in range(args.num_train_steps):
                     value, value_loss = agent.update_policy(lr)
+                    print('Value: {:.2f} | Value loss: {:.2f}'.format(value, value_loss))
             obs = None
             episode_step = 0
             episode += 1
