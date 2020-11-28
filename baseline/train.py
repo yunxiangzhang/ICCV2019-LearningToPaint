@@ -86,8 +86,8 @@ def main(args):
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+        # torch.backends.cudnn.deterministic = True
+        # torch.backends.cudnn.benchmark = False
     # Create folders if necessary
     args.model_path = os.path.join(args.path, 'models')
     args.content_dataset_path = os.path.join(args.path, 'dataset/content')

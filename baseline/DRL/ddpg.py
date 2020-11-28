@@ -25,18 +25,19 @@ class DDPG:
         self.polyak_factor = args.polyak_factor
         self.discount = args.discount
         self.cuda = args.cuda
-        # Actor-critic and their corresponding targets
+        # Actor and its target
         self.actor = Actor(12, 18, args.action_space_dim)  # 3(content)+3(style)+3(canvas)+1(step)+2(coordconv)
         self.actor_target = Actor(12, 18, args.action_space_dim)
         self.actor_target.eval()
         for p in self.actor_target.parameters():
             p.requires_grad = False
+        utils.hard_update(self.actor_target, self.actor)
+        # Critic and its target
         self.critic = Critic(12 + 3, 18, 1)  # Add the second most recent canvas for better prediction
         self.critic_target = Critic(12 + 3, 18, 1)
         self.critic_target.eval()
         for p in self.critic_target.parameters():
             p.requires_grad = False
-        utils.hard_update(self.actor_target, self.actor)
         utils.hard_update(self.critic_target, self.critic)
         # Renderer
         self.decoder = Renderer()
@@ -71,7 +72,6 @@ class DDPG:
         self.state = obs
 
     def select_action(self, state, update=False, target=False):
-        self.eval()
         state = torch.cat((state, self.coord.expand(state.shape[0], 2, self.canvas_size, self.canvas_size)), dim=1)
         if update:
             action = self.actor(state)
@@ -80,9 +80,10 @@ class DDPG:
                 if target:
                     action = self.actor_target(state)
                 else:
+                    self.eval()
                     action = self.actor(state)
-        self.train()
-        self.action = action
+                    self.train()
+                    self.action = action
         return action
 
     def compute_style_transfer_loss(self, canvas, content, style):
@@ -95,20 +96,20 @@ class DDPG:
         def style_hook(self, inputs, outputs):
             style_features.append(outputs)
 
-        def add_hooks(net):
+        def add_hooks(feature_extractor):
             handles = []
             i = 0
-            for layer in net.children():
+            for layer in feature_extractor.model.children():
                 if isinstance(layer, nn.Conv2d):
                     i += 1
                     name = 'conv_{}'.format(i)
-                    if name in net.content_layers:
+                    if name in feature_extractor.content_layers:
                         handles.append(layer.register_forward_hook(content_hook))
-                    if name in net.style_layers:
+                    if name in feature_extractor.style_layers:
                         handles.append(layer.register_forward_hook(style_hook))
             return handles
 
-        handles = add_hooks(self.feature.model)
+        handles = add_hooks(self.feature)
         self.feature.model(canvas)
         self.feature.model(style)
         self.feature.model(content)

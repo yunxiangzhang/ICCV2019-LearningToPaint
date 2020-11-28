@@ -23,15 +23,16 @@ class FeatureExtractor:
             self.mean = self.mean.cuda()
             self.std = self.std.cuda()
         self.normalization = Normalization(self.mean, self.std)
+        # Load VGG-19 model
         vgg19 = models.vgg19(pretrained=True).features.eval()
         self.model = nn.Sequential(self.normalization)
-        self.load_model(vgg19)
+        self.load_vgg(vgg19)
         if args.cuda:
             self.model.cuda()
         for p in self.model.parameters():
             p.requires_grad = False
 
-    def load_model(self, vgg19):
+    def load_vgg(self, vgg19):
         i = 0
         for layer in vgg19.children():
             if isinstance(layer, nn.Conv2d):

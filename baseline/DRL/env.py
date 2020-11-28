@@ -24,7 +24,7 @@ class Paint:
             self.decoder.cuda()
         for p in self.decoder.parameters():
             p.requires_grad = False
-        # Content and style datasets
+        # Content dataset
         content_dataset = datasets.ImageFolder(root=args.content_dataset_path,
                                                transform=transforms.Compose([
                                                    transforms.Resize(args.canvas_size),
@@ -36,22 +36,32 @@ class Paint:
         self.content_trainloader = DataLoader(content_trainset, batch_size=self.batch_size,
                                               shuffle=True, num_workers=args.num_workers, drop_last=True)
         self.content_testloader = DataLoader(content_testset, batch_size=self.batch_size, shuffle=False, num_workers=args.num_workers, drop_last=True)
-        self.content_train_iterator = iter(self.content_trainloader)
+        self.content_trainiterator = iter(self.content_trainloader)
+        # Style dataset
         style_dataset = datasets.ImageFolder(root=args.style_dataset_path,
                                              transform=transforms.Compose([
                                                  transforms.Resize(args.canvas_size),
                                                  transforms.CenterCrop(args.canvas_size),
                                                  transforms.ToTensor()]))
         self.style_dataloader = DataLoader(style_dataset, batch_size=self.batch_size, shuffle=True, num_workers=args.num_workers, drop_last=True)
+        self.style_dataiterator = iter(self.style_dataloader)
 
     def reset(self):
-        self.content = next(self.content_train_iterator, 'terminal')
+        # Content images
+        self.content = next(self.content_trainiterator, 'terminal')
         if self.content == 'terminal':
-            self.content_train_iterator = iter(self.content_trainloader)
-            self.content = next(self.content_train_iterator, 'terminal')[0]
+            self.content_trainiterator = iter(self.content_trainloader)
+            self.content = next(self.content_trainiterator, 'terminal')[0]
         else:
             self.content = self.content[0]
-        self.style = next(iter(self.style_dataloader))[0]
+        # Style images
+        self.style = next(self.style_dataiterator, 'terminal')
+        if self.style == 'terminal':
+            self.style_dataiterator = iter(self.style_dataloader)
+            self.style = next(self.style_dataiterator, 'terminal')[0]
+        else:
+            self.style = self.style[0]
+        # Canvas
         self.canvas = torch.zeros([self.batch_size, 3, self.canvas_size, self.canvas_size], dtype=torch.float32)
         if self.cuda:
             self.content = self.content.cuda()
@@ -67,7 +77,8 @@ class Paint:
         return torch.cat((self.canvas, self.content, self.style, T), dim=1)
 
     def step(self, action):
-        self.canvas = utils.decode(action, self.canvas, self.decoder, self.num_strokes, self.num_stroke_params)
+        with torch.no_grad():
+            self.canvas = utils.decode(action, self.canvas, self.decoder, self.num_strokes, self.num_stroke_params)
         self.step += 1
         obs = self.observe()
         done = torch.as_tensor([self.step == self.episode_len] * self.batch_size, dtype=torch.float32)
